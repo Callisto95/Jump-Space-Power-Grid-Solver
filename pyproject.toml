@@ -1,0 +1,10 @@
+[project]
+name = "jump-space-power-grid"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.13.5",
+    "questionary>=2.1.1",
+]

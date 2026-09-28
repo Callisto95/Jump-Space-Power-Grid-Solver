@@ -1,0 +1,39 @@
+[module-types]
+engines = "module"
+auxiliary-generators = "power"
+multi-turrets = "module"
+pilot-cannons = "module"
+reactors = "power"
+sensors = "module"
+shield-generators = "module"
+special-weapons = "module"
+
+[ships.C3-Catamaran]
+engines = 1
+auxiliary-generators = 2
+multi-turrets = 1
+pilot-cannons = 1
+reactors = 1
+sensors = 1
+shield-generators = 1
+special-weapons = 2
+
+[ships.DT4-Dart]
+engines = 1
+auxiliary-generators = 2
+multi-turrets = 0
+pilot-cannons = 2
+reactors = 1
+sensors = 1
+shield-generators = 1
+special-weapons = 1
+
+[ships.H5-Hammerhead]
+engines = 1
+auxiliary-generators = 2
+multi-turrets = 0
+pilot-cannons = 0
+reactors = 1
+sensors = 1
+shield-generators = 1
+special-weapons = 4
