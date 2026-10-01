@@ -1,6 +1,7 @@
 import copy
 import os
 from pathlib import Path
+from typing import Sequence
 
 
 class MatrixError(Exception):
@@ -8,11 +9,11 @@ class MatrixError(Exception):
 
 
 class Matrix[T]:
-    def __init__(self, data: list[list[T]]):
+    def __init__(self, data: Sequence[Sequence[T]]):
         if any(len(row) != len(data[0]) for row in data):
             raise MatrixError("The rows of the matrix are not the same length")
         
-        self.data: list[list[T]] = data
+        self.data: tuple[tuple[T]] = tuple(tuple(row) for row in data)
     
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value, Matrix):
@@ -65,12 +66,12 @@ class Matrix[T]:
         return Matrix(data_out)
     
     def rotate_90_clockwise(self) -> Matrix[T]:
-        matrix_out = self.transpose()
+        new_data: list[list[T]] = list(list(row) for row in self.transpose().data)
         
-        for row in range(matrix_out.height):
-            matrix_out.data[row] = matrix_out.data[row][::-1]
+        for row in range(len(new_data)):
+            new_data[row] = new_data[row][::-1]
         
-        return matrix_out
+        return Matrix(new_data)
     
     def map[O](self, mapping: dict[T, O]) -> Matrix[O]:
         out_matrix: list[list[O]] = []
@@ -85,10 +86,37 @@ class Matrix[T]:
     
     def copy(self) -> Matrix[T]:
         return Matrix(copy.deepcopy(self.data))
+    
+    def remove_row(self, row: int) -> Matrix[T]:
+        return Matrix(
+            tuple(
+                (
+                    r
+                    for row_index, r
+                    in enumerate(self.data)
+                    if row_index != row
+                ),
+            ),
+        )
+    
+    def remove_column(self, column: int) -> Matrix[T]:
+        return Matrix(
+            tuple(
+                (
+                    tuple(
+                        filter(
+                            lambda column_index, _: column_index != column,
+                            enumerate(r),
+                        ),
+                    )
+                    for r in self.data
+                ),
+            ),
+        )
 
 
 class NamedMatrix[T](Matrix[T]):
-    def __init__(self, name: str, data: list[list[T]]):
+    def __init__(self, name: str, data: Sequence[Sequence[T]]):
         super().__init__(data)
         self.name = name
     

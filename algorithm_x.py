@@ -60,12 +60,14 @@ def algorithm_x_recursive[T](
         
         # reverse removal to keep indices correct
         for row_index in sorted(to_remove_row_indices, reverse=True):
-            current_workspace.data.pop(row_index)
+            current_workspace = current_workspace.remove_row(row_index)
+            # current_workspace.data.pop(row_index)
             current_row_labels.pop(row_index)
         
         for column_index in sorted(to_remove_column_indices, reverse=True):
-            for row in current_workspace.data:
-                row.pop(column_index)
+            current_workspace = current_workspace.remove_column(column_index)
+            # for row in current_workspace.data:
+            #     row.pop(column_index)
         
         removed_primary_columns: int = len(
             list(filter(lambda index: index < primary_column_count, to_remove_column_indices)),
