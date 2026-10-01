@@ -1,4 +1,3 @@
-import copy
 from typing import Generator
 
 from matrix import Matrix
@@ -20,7 +19,7 @@ def algorithm_x_recursive[T](
     
     transposed_workspace: Matrix[int] = workspace.transpose()
     
-    column_counts: list[int] = [sum(column) for column in transposed_workspace.data[:primary_column_count]]
+    column_counts: list[int] = [sum(column) for column in transposed_workspace._data[:primary_column_count]]
     lowest_column_count: int = min(column_counts)
     
     if lowest_column_count == 0:
@@ -30,21 +29,19 @@ def algorithm_x_recursive[T](
     selected_column_index: int = column_counts.index(lowest_column_count)
     row_candidate_indices: list[int] = [
         index
-        for index, cell in enumerate(transposed_workspace.data[selected_column_index])
+        for index, cell in enumerate(transposed_workspace._data[selected_column_index])
         if cell == 1
     ]
     
     # step 4, split
     for row_candidate_index in row_candidate_indices:
-        current_row_labels: list[T] = copy.deepcopy(row_labels)
-        current_solution: list[T] = copy.deepcopy(previous_solution)
+        current_row_labels: list[T] = row_labels.copy()
+        current_solution = previous_solution + [current_row_labels[row_candidate_index]]
         current_workspace: Matrix[int] = workspace.copy()
         current_transposed_workspace: Matrix[int] = transposed_workspace.copy()
         
-        current_solution.append(current_row_labels[row_candidate_index])
-        
         to_remove_column_indices: set[int] = set()
-        for column_index, cell in enumerate(current_workspace.data[row_candidate_index]):
+        for column_index, cell in enumerate(current_workspace._data[row_candidate_index]):
             if cell == 0:
                 continue
             
@@ -52,7 +49,7 @@ def algorithm_x_recursive[T](
         
         to_remove_row_indices: set[int] = set()
         for column_index in to_remove_column_indices:
-            for row_index, cell in enumerate(current_transposed_workspace.data[column_index]):
+            for row_index, cell in enumerate(current_transposed_workspace._data[column_index]):
                 if cell == 0:
                     continue
                 

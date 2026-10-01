@@ -13,18 +13,18 @@ class Matrix[T]:
         if any(len(row) != len(data[0]) for row in data):
             raise MatrixError("The rows of the matrix are not the same length")
         
-        self.data: tuple[tuple[T]] = tuple(tuple(row) for row in data)
+        self._data: tuple[tuple[T]] = tuple(tuple(row) for row in data)
     
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value, Matrix):
             return False
         
-        return self.data == value.data
+        return self._data == value._data
     
     def __str__(self) -> str:
         out: str = ""
         
-        for row in self.data:
+        for row in self._data:
             out += str(row)
             out += "\n"
         
@@ -35,19 +35,19 @@ class Matrix[T]:
     
     @property
     def height(self) -> int:
-        return len(self.data)
+        return len(self._data)
     
     @property
     def width(self) -> int:
         if self.height == 0:
             return 0
         
-        return len(self.data[0])
+        return len(self._data[0])
     
     def weight(self, mapping: dict[T, bool]) -> int:
         total: int = 0
         
-        for row in self.data:
+        for row in self._data:
             if any(cell not in mapping for cell in row):
                 raise MatrixError(f"unknown mapping in row {row}; mappings are {mapping}")
             
@@ -57,16 +57,22 @@ class Matrix[T]:
         
         return total
     
+    def get_cell(self, row: int, column: int) -> T:
+        return self._data[row][column]
+    
+    def data(self) -> list[list[T]]:
+        return [list(row) for row in self._data]
+    
     def transpose(self) -> Matrix[T]:
         data_out: list[list[T]] = []
         
         for x in range(self.width):
-            data_out.append([self.data[y][x] for y in range(self.height)])
+            data_out.append([self._data[y][x] for y in range(self.height)])
         
         return Matrix(data_out)
     
     def rotate_90_clockwise(self) -> Matrix[T]:
-        new_data: list[list[T]] = list(list(row) for row in self.transpose().data)
+        new_data: list[list[T]] = self.transpose().data()
         
         for row in range(len(new_data)):
             new_data[row] = new_data[row][::-1]
@@ -76,7 +82,7 @@ class Matrix[T]:
     def map[O](self, mapping: dict[T, O]) -> Matrix[O]:
         out_matrix: list[list[O]] = []
         
-        for row in self.data:
+        for row in self._data:
             if any(cell not in mapping for cell in row):
                 raise MatrixError(f"Mapping symbol is missing for row '{row}'; mapping is {mapping}")
             
@@ -85,34 +91,22 @@ class Matrix[T]:
         return Matrix(out_matrix)
     
     def copy(self) -> Matrix[T]:
-        return Matrix(copy.deepcopy(self.data))
+        return Matrix(copy.deepcopy(self._data))
     
     def remove_row(self, row: int) -> Matrix[T]:
-        return Matrix(
-            tuple(
-                (
-                    r
-                    for row_index, r
-                    in enumerate(self.data)
-                    if row_index != row
-                ),
-            ),
-        )
+        data: list[list[T]] = self.data()
+        
+        data.pop(row)
+        
+        return Matrix(data)
     
     def remove_column(self, column: int) -> Matrix[T]:
-        return Matrix(
-            tuple(
-                (
-                    tuple(
-                        filter(
-                            lambda column_index, _: column_index != column,
-                            enumerate(r),
-                        ),
-                    )
-                    for r in self.data
-                ),
-            ),
-        )
+        data: list[list[T]] = self.data()
+        
+        for row in data:
+            row.pop(column)
+        
+        return Matrix(data)
 
 
 class NamedMatrix[T](Matrix[T]):
@@ -135,7 +129,7 @@ class NamedMatrix[T](Matrix[T]):
         return cls(file_path.stem.replace("-", " "), data)
     
     def copy(self) -> NamedMatrix[T]:
-        return NamedMatrix(self.name, super().copy().data)
+        return NamedMatrix(self.name, super().copy()._data)
 
 
 def generate_rotations[T](matrix: Matrix[T]) -> list[Matrix[T]]:

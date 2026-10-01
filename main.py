@@ -17,7 +17,7 @@ class PowergridCellType(Enum):
     PROTECTED = auto()
 
 
-@dataclass
+@dataclass(frozen=True)
 class Placement:
     x: int
     y: int
@@ -26,7 +26,7 @@ class Placement:
         return f"({self.x}-{self.y})"
 
 
-@dataclass
+@dataclass(frozen=True)
 class HullModule:
     name: str
     matrix: Matrix
@@ -35,25 +35,20 @@ class HullModule:
         return self.name
 
 
-@dataclass
+@dataclass(frozen=True)
 class ShipModule(HullModule):
     matrix: Matrix[bool]
 
 
-@dataclass
+@dataclass(frozen=True)
 class PowerModule(HullModule):
     matrix: Matrix[PowergridCellType]
-
-
-@dataclass
-class PlacedModule(ShipModule):
-    placement: Placement
 
 
 class Powergrid:
     def __init__(
         self,
-        *modules: PowerModule
+        *modules: PowerModule,
     ):
         if len(modules) == 0:
             raise ValueError("The powergrid must contain at least one generator")
@@ -66,7 +61,7 @@ class Powergrid:
         matrix_data: list[list[PowergridCellType]] = []
         
         for module in modules:
-            matrix_data += module.matrix.data
+            matrix_data += module.matrix.data()
         
         self.matrix: Matrix[PowergridCellType] = Matrix(matrix_data)
     
@@ -87,33 +82,56 @@ class Powergrid:
                 row: int = relative_row + position.y
                 column: int = relative_column + position.x
                 
-                cell: PowergridCellType = self.matrix.data[row][column]
+                cell: PowergridCellType = self.matrix.get_cell(row, column)
+                module_cell: bool = module.get_cell(relative_row, relative_column)
                 
-                if module.data[relative_row][relative_column] and cell == PowergridCellType.EMPTY:
+                if module_cell and cell == PowergridCellType.EMPTY:
                     # print("uses bad cell")
                     return None
                 
-                if not module.data[relative_row][relative_column]:
+                if not module_cell:
                     continue
                 
-                # TODO: extract
-                index = 0
-                stop = False
-                for y in range(self.matrix.height):
-                    for x in range(self.matrix.width):
-                        if x == column and y == row:
-                            stop = True
-                            break
-                        
-                        if self.matrix.data[y][x] == PowergridCellType.EMPTY:
-                            continue
-                        index += 1
-                    if stop:
-                        break
-                
-                used_cells_indices.append(index)
+                used_cells_indices.append(self.cell_to_index(row, column))
         
         return used_cells_indices
+    
+    def cell_to_index(self, row: int, column: int) -> int:
+        if row >= self.matrix.height or column >= self.matrix.width:
+            raise ValueError(
+                f"The cell {row}-{column} is not in the powergrid (max {self.matrix.height}-{self.matrix.width})",
+            )
+        
+        index = 0
+        
+        for y in range(self.matrix.height):
+            for x in range(self.matrix.width):
+                if x == column and y == row:
+                    return index
+                
+                if self.matrix.get_cell(y, x) == PowergridCellType.EMPTY:
+                    continue
+                
+                index += 1
+        
+        raise ValueError(f"The cell at {row}-{column} doesn't have an index. Is it an empty cell?")
+    
+    def index_to_cell(self, index: int) -> PowergridCellType:
+        current_index: int = 0
+        
+        for y in range(self.matrix.height):
+            for x in range(self.matrix.width):
+                current_cell: PowergridCellType = self.matrix.get_cell(y, x)
+                
+                if current_cell == PowergridCellType.EMPTY:
+                    continue
+                
+                if current_index == index:
+                    return current_cell
+                
+                current_index += 1
+        
+        raise ValueError(f"The given index {index} is too big for the matrix (max index is {current_index - 1})")
 
 
 type HullLimitations = dict[str, int]
@@ -132,9 +150,9 @@ class MatrixMappings(Enum):
     }
     MODULE = { "X": True, "_": False }
     POWER_GRID_WEIGHT = {
-        PowergridCellType.EMPTY: False,
-        PowergridCellType.PROTECTED: True,
-        PowergridCellType.UNPROTECTED: True
+        PowergridCellType.EMPTY      : False,
+        PowergridCellType.PROTECTED  : True,
+        PowergridCellType.UNPROTECTED: True,
     }
 
 
@@ -257,8 +275,11 @@ def compute_solution(selections: dict[str, list[HullModule]]) -> None:
         
         module_index += 1
     
-    # named_placements: list[str] = [f"{module.name} @ {position} ({rotation_degree})" for module, position, _, rotation_degree in all_placements]
-    named_placements: list[tuple[ShipModule, Matrix[bool], Placement]] = [(module, rotated_matrix, position) for module, rotated_matrix, position, used_indices, rotation_degree in all_placements]
+    named_placements: list[tuple[ShipModule, Matrix[bool], Placement]] = [
+        (module, rotated_matrix, position)
+        for module, rotated_matrix, position, used_indices, rotation_degree
+        in all_placements
+    ]
     
     matrix_width: int = module_count + powergrid.matrix.weight(MatrixMappings.POWER_GRID_WEIGHT.value)
     
@@ -283,7 +304,7 @@ def compute_solution(selections: dict[str, list[HullModule]]) -> None:
             print(matrix)
             print()
         print("-" * 50)
-        
+    
     questionary.press_any_key_to_continue("waiting...").ask()
 
 
@@ -314,7 +335,7 @@ def change_ship(
 def select_module(
     module_limit: int,
     available_modules: list[HullModule],
-    current_modules: list[HullModule]
+    current_modules: list[HullModule],
 ) -> list[HullModule] | None:
     module_choices: list[HullModule] = []
     
@@ -378,7 +399,7 @@ def main():
         selected_modules: list[HullModule] | None = select_module(
             all_hulls[selected_hull_name][choice],
             available_modules[choice],
-            module_selections[choice]
+            module_selections[choice],
         )
         
         if selected_modules is None:
