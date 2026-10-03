@@ -1,8 +1,8 @@
-import copy
 import tomllib
 from dataclasses import dataclass
 from enum import auto, Enum, StrEnum
 from glob import glob
+from typing import Generator
 
 import questionary
 from questionary import Choice
@@ -39,7 +39,7 @@ class Placement:
     y: int
     
     def __str__(self) -> str:
-        return f"({self.x}-{self.y})"
+        return f"({self.x}x{self.y})"
 
 
 @dataclass(frozen=True)
@@ -152,6 +152,17 @@ class Powergrid:
                 current_index += 1
         
         raise ValueError(f"The given index {index} is too big for the matrix (max index is {current_index - 1})")
+    
+    def find_placement(self, rotated_matrix: Matrix[bool]) -> Generator[tuple[list[int], Placement]]:
+        for y_offset in range(self.matrix.height - rotated_matrix.height + 1):
+            for x_offset in range(self.matrix.width - rotated_matrix.width + 1):
+                position: Placement = Placement(x_offset, y_offset)
+                used_indices: list[int] | None = self.place(rotated_matrix, position)
+                
+                if used_indices is None:
+                    continue
+                
+                yield used_indices, position
 
 
 class ModuleType(StrEnum):
@@ -246,86 +257,79 @@ def create_menu_choices(limitations: HullLimitations) -> list[Choice]:
     return choices
 
 
-def compute_solution(selections: dict[str, list[ShipModule]]) -> None:
-    if len(selections["reactors"]) == 0:
-        raise ValueError("No reactor selected")
+@dataclass(frozen=True)
+class PlacedModule:
+    module: HullModule
+    module_number: int
+    matrix: Matrix[bool]
+    position: Placement
+    used_indices: list[int]
+
+
+def compute_solution(
+    selections: dict[str, list[ShipModule]],
+    module_config: dict[str, ModuleConfiguration],
+) -> Generator[list[PlacedModule]]:
+    # this isn't really dynamic like the rest, but the order (top to bottom) is important
+    power_modules: list[PowerModule] = selections["reactors"] + selections["auxiliary-generators"]
     
-    reactor: PowerModule = selections["reactors"][0]
-    if not isinstance(reactor, PowerModule):
-        raise ValueError("reactor is not a power module")
+    # should never happen, here to stop something bad
+    if any(not isinstance(power_module, PowerModule) for power_module in power_modules):
+        raise ValueError("a power module is not a actually a power module")
     
-    if not all(isinstance(generator, PowerModule) for generator in selections["auxiliary-generators"]):
-        raise ValueError("an auxiliary generator is not a power module")
-    
-    powergrid: Powergrid = Powergrid(reactor, *selections["auxiliary-generators"])
-    
-    modules_to_place: dict[str, list[ShipModule]] = copy.deepcopy(selections)
-    for category in filter(lambda c: len(selections[c]) == 0 or isinstance(selections[c][0], PowerModule), selections):
-        # print("removing", category)
-        modules_to_place.pop(category)
-    
-    module_count: int = 0
-    for modules in modules_to_place.values():
-        module_count += len(modules)
+    powergrid: Powergrid = Powergrid(*power_modules)
     
     all_modules: list[HullModule] = []
-    for modules in modules_to_place.values():
-        all_modules += modules
+    module_count: int = 0
     
-    if not all(isinstance(module, HullModule) for module in all_modules):
+    for module_name, configuration in module_config.items():
+        if configuration.type == ModuleType.POWER:
+            continue
+        
+        # not anything on the powergrid, so empty slots are irrelevant
+        current_modules: list[HullModule] = list(
+            filter(
+                lambda module: not (module is EMPTY_MODULE or module is EMPTY_GENERATOR),
+                selections[module_name],
+            ),
+        )
+        
+        all_modules += current_modules
+        module_count += len(current_modules)
+    
+    # should never happen, here to stop something bad
+    if any(not isinstance(module, HullModule) for module in all_modules):
         raise ValueError("not all placeable modules are actually modules")
     
-    all_placements: list[tuple[HullModule, Matrix[bool], Placement, list[int], int]] = []
-    module_indices: list[int] = []
-    module_index: int = 0
-    for module in all_modules:
-        for rotation_degree, rotation in enumerate(generate_rotations(module.matrix)):
-            rotation_degree *= 90
-            # split this into a function
-            for y_offset in range(powergrid.matrix.height - rotation.height + 1):
-                for x_offset in range(powergrid.matrix.width - rotation.width + 1):
-                    position: Placement = Placement(x_offset, y_offset)
-                    used_indices = powergrid.place(rotation, position)
-                    
-                    if used_indices is None:
-                        continue
-                    
-                    all_placements.append((module, rotation, position, used_indices, rotation_degree))
-                    module_indices.append(module_index)
-        
-        module_index += 1
+    all_placements: list[PlacedModule] = []
+    for module_index, module in enumerate(all_modules):
+        for rotated_matrix in generate_rotations(module.matrix):
+            found_solution: bool = False
+            
+            for used_indices, position in powergrid.find_placement(rotated_matrix):
+                all_placements.append(PlacedModule(module, module_index, rotated_matrix, position, used_indices))
+                found_solution = True
+            
+            if not found_solution:
+                (questionary
+                 .press_any_key_to_continue(f"{module.name} cannot be placed at all.")
+                 .ask())
+                return
     
-    named_placements: list[tuple[HullModule, Matrix[bool], Placement]] = [
-        (module, rotated_matrix, position)
-        for module, rotated_matrix, position, used_indices, rotation_degree
-        in all_placements
-    ]
-    
-    matrix_width: int = module_count + powergrid.matrix.weight(MatrixMappings.POWER_GRID_WEIGHT.value)
+    matrix_width: int = module_count + powergrid.matrix.weight(MatrixMappings.POWER_GRID_WEIGHT)
     
     workspace: list[list[int]] = []
-    for index, value in enumerate(all_placements):
-        module, _, position, used_indices, _ = value
+    for placed_module in all_placements:
         row = [0] * matrix_width
         
-        for used_index in used_indices:
-            row[module_count + used_index] = 1
+        row[placed_module.module_number] = 1
         
-        row[module_indices[index]] = 1
+        for used_index in placed_module.used_indices:
+            row[module_count + used_index] = 1
         
         workspace.append(row)
     
-    # print(Matrix(workspace))
-    
-    for solution_index, solution in enumerate(algorithm_x(Matrix(workspace), module_count, named_placements)):
-        print(f"Solution #{solution_index}")
-        for module, matrix, position in solution:
-            print(module.name, "@", position)
-            print(matrix)
-            print()
-        print("-" * 50)
-    
-    questionary.press_any_key_to_continue("waiting...").ask()
+    yield from algorithm_x(Matrix(workspace), module_count, all_placements)
 
 
 def select_module(
@@ -349,7 +353,7 @@ def select_module(
             choices,
             qmark="",
             instruction=" ",
-            default=current_modules[choice_index],
+            default=current_modules[choice_index],  # questionary compares values, this is fine
         ).ask()
         
         if choice is None:
@@ -410,14 +414,23 @@ def main():
     
     module_selections = initialize_selections(hulls[selected_hull_name], module_configuration)
     
+    last_answer: str | None = None
     while True:
         show_current_status(selected_hull_name, hulls[selected_hull_name], module_selections)
         
         choices: list[Choice] = create_menu_choices(hulls[selected_hull_name])
-        choice: str | None = questionary.select("What to do with the ship?", choices, qmark="", instruction=" ").ask()
+        choice: str | None = questionary.select(
+            "What to do with the ship?",
+            choices,
+            qmark="",
+            instruction=" ",
+            default=last_answer,
+        ).ask()
         
         if choice is None or choice == "exit":
             return
+        
+        last_answer = choice
         
         if choice == "change ship":
             new_ship_name: str | None = questionary.select(
@@ -436,7 +449,14 @@ def main():
             continue
         
         if choice == "compute solution":
-            compute_solution(module_selections)
+            for solution_index, solution in enumerate(compute_solution(module_selections, module_configuration)):
+                print(f"Solution #{solution_index}")
+                for module in solution:
+                    print(module.module.name, "@", module.position)
+                    print(module.matrix)
+                print("-" * 50)
+                questionary.press_any_key_to_continue("next solution...").ask()
+            
             continue
         
         selected_modules: list[ShipModule] | None = select_module(
@@ -452,4 +472,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except EOFError:
+        pass
