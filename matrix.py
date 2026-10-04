@@ -58,6 +58,9 @@ class Matrix[T]:
         return total
     
     def get_cell(self, row: int, column: int) -> T:
+        if not (0 <= row < self.height and 0 <= column < self.width):
+            raise ValueError(f"{row}x{column} is not in the matrix ({self.width}x{self.height})")
+        
         return self._data[row][column]
     
     def data(self) -> list[list[T]]:
