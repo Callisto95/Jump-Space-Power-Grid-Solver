@@ -51,8 +51,8 @@ class MatrixMappings(dict, Enum):
 
 @dataclass(frozen=True)
 class Placement:
-    column: int
     row: int
+    column: int
     
     def __str__(self) -> str:
         return f"(c{self.column} r{self.row})"
@@ -176,8 +176,8 @@ class Powergrid(Matrix[PowergridCellType]):
         raise ValueError(f"The given index {index} is too big for the matrix (max index is {current_index - 1})")
     
     def find_placement(self, rotated_matrix: Matrix[bool]) -> Generator[tuple[list[int], Placement]]:
-        for column_offset in range(self.height - rotated_matrix.height + 1):
-            for row_offset in range(self.width - rotated_matrix.width + 1):
+        for row_offset in range(self.height - rotated_matrix.height + 1):
+            for column_offset in range(self.width - rotated_matrix.width + 1):
                 position: Placement = Placement(row_offset, column_offset)
                 used_indices: list[int] | None = self.place(rotated_matrix, position)
                 
@@ -267,18 +267,19 @@ def compute_solution(
     
     all_placements: list[PlacedModule] = []
     for module_index, module in enumerate(all_modules):
+        found_placement: bool = False
+        
         for rotated_matrix in generate_rotations(module.matrix):
-            found_solution: bool = False
             
             for used_indices, position in powergrid.find_placement(rotated_matrix):
                 all_placements.append(PlacedModule(module, module_index, rotated_matrix, position, used_indices))
-                found_solution = True
-            
-            if not found_solution:
-                (questionary
-                 .press_any_key_to_continue(f"{module.name} cannot be placed at all.")
-                 .ask())
-                return
+                found_placement = True
+        
+        if not found_placement:
+            (questionary
+             .press_any_key_to_continue(f"{module.name} cannot be placed at all.")
+             .ask())
+            return
     
     matrix_width: int = module_count + powergrid.weight()
     
@@ -348,6 +349,7 @@ def adapt_selections(
     for module_name, new_module_limit in new_limitations.items():
         if new_module_limit == 0:
             new_selection[module_name] = []
+            continue
         
         cut_modules: list[ShipModule] = previous_selection[module_name][:new_module_limit]
         new_empty_modules: int = new_module_limit - len(cut_modules)
