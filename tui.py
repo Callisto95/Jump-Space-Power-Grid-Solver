@@ -1,9 +1,11 @@
+import random
+
 import questionary
 from questionary import Choice
 
 from game import (
     adapt_selections,
-    compute_solution,
+    Colour, compute_solution,
     EMPTY_GENERATOR,
     EMPTY_MODULE,
     HullLimitations,
@@ -93,7 +95,7 @@ def select_module(
 
 
 def main():
-    hulls, module_configuration = load_configurations()
+    hulls, module_configuration, module_colours = load_configurations()
     
     # take the first and done
     selected_hull_name: str = next(iter(hulls.keys()))
@@ -137,20 +139,36 @@ def main():
         if choice == "compute solution":
             for solution_index, solution in enumerate(compute_solution(module_selections, module_configuration)):
                 print(f"Solution #{solution_index}")
-                # for module in solution.modules:
-                #     print(module.module.name, "@", module.position)
-                #     print(module.matrix)
-                # print("-" * 50)
+                
+                colours: list[Colour] = []
+                for _ in range(len(solution.modules)):
+                    colours.append(Colour(random.randint(0, 0xFFFFFF)))
                 
                 for row in range(solution.powergrid.height):
                     for column in range(solution.powergrid.width):
                         cell: PowergridCellType | PlacedModule = solution.get_cell(row, column)
                         if isinstance(cell, PowergridCellType):
-                            name = cell.name[:1]
+                            colour = module_colours[f"power_{cell.name.lower()}"]
+                            name = " "
                         else:
                             name = cell.module.name[:1]
-                        print(name, end="")
-                    print()
+                            
+                            if cell.module.name in module_colours:
+                                colour = module_colours[cell.module.name]
+                            else:
+                                colour = colours[solution.modules.index(cell)]
+                        # 38 = foreground, 48 = background
+                        print(
+                            "\u001B[48;2;{red};{green};{blue}m{name}".format(
+                                red=colour.red,
+                                green=colour.green,
+                                blue=colour.blue,
+                                name=name.upper()
+                            ),
+                            end="",
+                        )
+                    # reset everything
+                    print("\u001B[0m")
                 
                 print("=" * 50)
                 

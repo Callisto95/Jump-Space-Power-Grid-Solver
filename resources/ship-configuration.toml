@@ -1,4 +1,4 @@
-[module-types]
+[modules.types]
 engines = "module"
 auxiliary-generators = "power"
 multi-turrets = "module"
@@ -7,6 +7,12 @@ reactors = "power"
 sensors = "module"
 shield-generators = "module"
 special-weapons = "module"
+
+[modules.colours]
+power_unprotected = 0x00FF00
+power_protected = 0x0000FF
+power_empty = 0x000000
+fortress-shield = 0x00FFFF
 
 [ships.C3-Catamaran]
 engines = 1

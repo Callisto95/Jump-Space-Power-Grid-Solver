@@ -12,6 +12,23 @@ from matrix import generate_rotations, Matrix, NamedMatrix
 type HullLimitations = dict[str, int]
 
 
+@dataclass(frozen=True)
+class Colour:
+    value: int
+    
+    @property
+    def red(self) -> int:
+        return (self.value >> 16) & 0xFF
+    
+    @property
+    def green(self) -> int:
+        return (self.value >> 8) & 0xFF
+    
+    @property
+    def blue(self) -> int:
+        return (self.value >> 0) & 0xFF
+
+
 class PowergridCellType(Enum):
     EMPTY = auto()
     UNPROTECTED = auto()
@@ -280,11 +297,20 @@ def compute_solution(
         yield Solution(powergrid, placements)
 
 
-def load_configurations() -> tuple[dict[str, dict[str, int]], dict[str, ModuleConfiguration]]:
+def load_configurations() -> tuple[dict[str, HullLimitations], dict[str, ModuleConfiguration], dict[str, Colour]]:
     with open("./resources/ship-configuration.toml", "rb") as ship_configuration_file:
         config: dict[str, dict[str, int | str]] = tomllib.load(ship_configuration_file)
     
-    module_types: dict[str, ModuleType] = config["module-types"]
+    module_configuration: dict[str, dict[str, str | int]] = config["modules"]
+    
+    if any(not isinstance(value, int) for value in module_configuration["colours"].values()):
+        raise ValueError("all colours must be integers")
+    
+    module_colours: dict[str, Colour] = { }
+    for module_name, colour_value in module_configuration["colours"].items():
+        module_colours[module_name.replace("-", " ")] = Colour(colour_value)
+    
+    module_types: dict[str, ModuleType] = module_configuration["types"]
     
     if any(module_type not in list(ModuleType) for module_type in module_types.values()):
         raise ValueError(f"A module is misconfigured. Accepted types are {', '.join(list(ModuleType))}")
@@ -309,7 +335,7 @@ def load_configurations() -> tuple[dict[str, dict[str, int]], dict[str, ModuleCo
         if module_types.keys() != limits.keys():
             raise ValueError(f"Ship limits don't match for hull {name}, {limits.keys()} should ALL be set")
     
-    return ships, module_configurations
+    return ships, module_configurations, module_colours
 
 
 def adapt_selections(
