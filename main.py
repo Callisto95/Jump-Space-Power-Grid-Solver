@@ -455,7 +455,11 @@ def main():
                     print(module.module.name, "@", module.position)
                     print(module.matrix)
                 print("-" * 50)
-                questionary.press_any_key_to_continue("next solution...").ask()
+                
+                do_continue: bool | None = questionary.confirm("Next solution?", qmark="", default=False).ask()
+                
+                if not do_continue:
+                    break
             
             continue
         
