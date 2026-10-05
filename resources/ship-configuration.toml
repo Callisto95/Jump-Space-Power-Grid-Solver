@@ -9,10 +9,39 @@ shield-generators = "module"
 special-weapons = "module"
 
 [modules.colours]
+# power
 power_unprotected = 0x00FF00
 power_protected = 0x0000FF
 power_empty = 0x000000
+# engines
+drift-phase-engine = 0x02FCFC
+mass-ejector-engine = 0x02FC7F
+microplasma-engine = 0x70F9F9
+nitro-pulse-engine = 0x027FFC
+# multi-turrets
+assaults-turrets = 0xF97070
+flak-launcher-turrets = 0xF9B570
+gatling-turrets = 0xF970B5
+mining-laser = 0xF9AE70
+# pilot-cannons
+bolt-accelerator = 0xB302F9
+disruptor-laser = 0xF902C4
+fragmentation-cannon = 0x3802F9
+reaver-rotary-cannon = 0x924EAD
+# sensors
+sector-scanner = 0x0089F2
+supply-uplink-unit = 0x0A1D7F
+vector-targeting-module = 0xED2A10
+# shields
+fighter-shield = 0x11DB91
 fortress-shield = 0x00FFFF
+skirmisher-shield = 0x0BEF44
+# special-weapons
+burst-shield = 0xDCEF0B
+lance-railgun = 0xF9006C
+missile-launcher = 0xFF0000
+thunderburst-heavy-cannon = 0x84140A
+vulcan-rotary-cannon = 0xFC9905
 
 [ships.C3-Catamaran]
 engines = 1
