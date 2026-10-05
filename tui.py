@@ -5,7 +5,7 @@ from questionary import Choice
 
 from game import (
     adapt_selections,
-    Colour, compute_solution,
+    Colour, compute_best_solutions, compute_solution,
     EMPTY_GENERATOR,
     EMPTY_MODULE,
     HullLimitations,
@@ -137,7 +137,7 @@ def main():
             continue
         
         if choice == "compute solution":
-            for solution_index, solution in enumerate(compute_solution(module_selections, module_configuration)):
+            for solution_index, solution in enumerate(compute_best_solutions(module_selections, module_configuration)):
                 print(f"Solution #{solution_index}")
                 
                 colours: list[Colour] = []

@@ -211,12 +211,23 @@ class PlacedModule:
     used_indices: list[int]
 
 
-@dataclass(frozen=True)
-class Solution:
+@dataclass
+class Solution(Matrix[PowergridCellType | PlacedModule]):
     powergrid: Powergrid
     modules: list[PlacedModule]
     
-    def get_cell(self, row: int, column: int) -> PowergridCellType | PlacedModule:
+    def __init__(self, powergrid: Powergrid, modules: list[PlacedModule]):
+        self.powergrid = powergrid
+        self.modules = modules
+        
+        data: list[list[PowergridCellType | PlacedModule]] = []
+        
+        for row in range(powergrid.height):
+            data.append([self._placement_at(row, column) for column in range(powergrid.width)])
+        
+        super().__init__(data)
+    
+    def _placement_at(self, row: int, column: int) -> PowergridCellType | PlacedModule:
         for module in self.modules:
             if (
                 module.position.row <= row < module.position.row + module.matrix.height
@@ -296,6 +307,42 @@ def compute_solution(
     
     for placements in algorithm_x(Matrix(workspace), module_count, all_placements):
         yield Solution(powergrid, placements)
+
+
+def compute_best_solutions(
+    selections: dict[str, list[ShipModule]],
+    module_config: dict[str, ModuleConfiguration],
+) -> list[Solution]:
+    # something high
+    highest_penalty: int = 1_000_000
+    best_solutions: list[Solution] = []
+    
+    for solution in compute_solution(selections, module_config):
+        current_penalty: int = 0
+        
+        for row in range(solution.height):
+            for column in range(solution.width):
+                cell: PowergridCellType | PlacedModule = solution.get_cell(row, column)
+                
+                if isinstance(cell, PlacedModule) or cell == PowergridCellType.EMPTY:
+                    continue
+                
+                if cell == PowergridCellType.EMPTY:
+                    continue
+                
+                if cell == PowergridCellType.UNPROTECTED:
+                    current_penalty += 1
+                elif cell == PowergridCellType.PROTECTED:
+                    current_penalty += 2
+        
+        if current_penalty < highest_penalty:
+            highest_penalty = current_penalty
+            best_solutions.clear()
+        
+        if current_penalty == highest_penalty:
+            best_solutions.append(solution)
+    
+    return best_solutions
 
 
 def load_configurations() -> tuple[dict[str, HullLimitations], dict[str, ModuleConfiguration], dict[str, Colour]]:
