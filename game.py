@@ -272,6 +272,9 @@ def compute_solution(
         all_modules += current_modules
         module_count += len(current_modules)
     
+    all_modules.append(HullModule("jump drive", Matrix([[True, True], [True, False]])))
+    module_count += 1
+    
     # should never happen, here to stop something bad
     if any(not isinstance(module, HullModule) for module in all_modules):
         raise ValueError("not all placeable modules are actually modules")

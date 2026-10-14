@@ -23,7 +23,6 @@ def algorithm_x_recursive[T](
     lowest_column_count: int = min(column_counts)
     
     if lowest_column_count == 0:
-        print("no solution")
         return  # dead end, backtrack
     
     selected_column_index: int = column_counts.index(lowest_column_count)
